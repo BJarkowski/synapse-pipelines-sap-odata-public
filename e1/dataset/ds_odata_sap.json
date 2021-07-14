@@ -1,0 +1,15 @@
+{
+	"name": "ds_odata_sap",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_odata_sap",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "ODataResource",
+		"schema": [],
+		"typeProperties": {
+			"path": "A_SalesOrder"
+		}
+	}
+}

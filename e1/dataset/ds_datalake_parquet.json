@@ -1,0 +1,20 @@
+{
+	"name": "ds_datalake_parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_datalake",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "API_SALES_ORDER_SRV",
+				"fileSystem": "odata"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}
