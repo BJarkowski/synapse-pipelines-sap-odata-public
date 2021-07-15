@@ -2,6 +2,7 @@
 
 This repository supplements blog series available on SAP Community about data extraction from SAP systems using OData services. Each directory contains target solution described in a blog.
 You can find all blogs here:
+https://blogs.sap.com/tag/summer-with-odata-extraction-using-synapse-pipelines/
 
 Every week, as I publish another episode of the blog series, I will add a directory with the source code of the pipeline and all resources.
 
