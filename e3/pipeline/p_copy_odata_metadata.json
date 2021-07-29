@@ -1,0 +1,80 @@
+{
+	"name": "p_copy_odata_metadata",
+	"properties": {
+		"activities": [
+			{
+				"name": "l_metadata",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureTableSource",
+						"azureTableSourceIgnoreTableNotFound": false
+					},
+					"dataset": {
+						"referenceName": "ds_metadata_table",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "fe_metadata",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "l_metadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('l_metadata').output.value ",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "ep_copy",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "p_copy_odata",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"URL": {
+										"value": "@item().Host",
+										"type": "Expression"
+									},
+									"ODataService": {
+										"value": "@item().PartitionKey",
+										"type": "Expression"
+									},
+									"Entity": {
+										"value": "@item().RowKey",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": []
+	}
+}
