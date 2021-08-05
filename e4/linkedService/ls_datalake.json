@@ -1,0 +1,15 @@
+{
+	"name": "ls_datalake",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://demodatav2.dfs.core.windows.net"
+		},
+		"connectVia": {
+			"referenceName": "SH-IR",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

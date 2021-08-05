@@ -1,0 +1,30 @@
+{
+	"name": "ls_http_sap",
+	"properties": {
+		"parameters": {
+			"ODataURL": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"type": "HttpServer",
+		"typeProperties": {
+			"url": "@{linkedService().ODataURL}",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "Basic",
+			"userName": "bjarkowski",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_keyvault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "s4hana"
+			}
+		},
+		"connectVia": {
+			"referenceName": "SH-IR",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

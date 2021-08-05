@@ -1,0 +1,38 @@
+{
+	"name": "ds_http_sap",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_http_sap",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"ODataURL": {
+					"value": "@dataset().ODataURL",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"ODataURL": {
+				"type": "string"
+			},
+			"Entity": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@concat(dataset().Entity, '/$count')",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}

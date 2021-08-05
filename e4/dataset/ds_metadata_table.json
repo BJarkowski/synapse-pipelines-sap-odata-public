@@ -1,0 +1,16 @@
+{
+	"name": "ds_metadata_table",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_metadata_table",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureTable",
+		"schema": [],
+		"typeProperties": {
+			"tableName": "ODataList"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}
