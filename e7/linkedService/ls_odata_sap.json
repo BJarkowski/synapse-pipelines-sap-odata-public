@@ -1,0 +1,39 @@
+{
+	"name": "ls_odata_sap",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"type": "OData",
+		"annotations": [],
+		"parameters": {
+			"ODataURL": {
+				"type": "String"
+			},
+			"Header": {
+				"type": "String"
+			}
+		},
+		"typeProperties": {
+			"url": "@{linkedService().ODataURL}",
+			"authenticationType": "Basic",
+			"userName": "bjarkowski",
+			"authHeaders": {
+				"Prefer": {
+					"type": "SecureString",
+					"value": ""
+				}
+			},
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_keyvault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "s4hana"
+			}
+		},
+		"connectVia": {
+			"referenceName": "SH-IR",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

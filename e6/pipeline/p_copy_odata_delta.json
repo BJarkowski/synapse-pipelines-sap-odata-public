@@ -1,0 +1,364 @@
+{
+	"name": "p_copy_odata_delta",
+	"properties": {
+		"activities": [
+			{
+				"name": "l_count",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "sv_watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [
+					{
+						"name": "var",
+						"value": "@variables('v_watermark')"
+					}
+				],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_http_sap",
+						"type": "DatasetReference",
+						"parameters": {
+							"ODataURL": {
+								"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService, '/')",
+								"type": "Expression"
+							},
+							"Query": {
+								"value": "@if(empty(pipeline().parameters.Filter), concat('?$filter=', if(empty(pipeline().parameters.Watermark), '', concat(pipeline().parameters.WatermarkField, ' gt datetimeoffset''', formatDateTime(pipeline().parameters.Watermark, 'yyyy-MM-ddThh:ss:sZ'), ''' and ')), pipeline().parameters.WatermarkField, ' le datetimeoffset''', formatDateTime(variables('v_watermark'), 'yyyy-MM-ddThh:ss:sZ'),''''), concat('?$filter=', pipeline().parameters.Filter, if(empty(pipeline().parameters.Watermark), '', concat(' and ', pipeline().parameters.WatermarkField, ' gt datetimeoffset''', formatDateTime(pipeline().parameters.Watermark, 'yyyy-MM-ddThh:ss:sZ'))), ''' and ', pipeline().parameters.WatermarkField, ' le datetimeoffset''', formatDateTime(variables('v_watermark'), 'yyyy-MM-ddThh:ss:sZ'),''''))",
+								"type": "Expression"
+							},
+							"Entity": {
+								"value": "@pipeline().parameters.Entity",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "fe_count",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "l_count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@range(0, add(div(int(activity('l_count').output.firstRow.Prop_0), int(pipeline().parameters.Batch)),1))",
+						"type": "Expression"
+					},
+					"batchCount": 5,
+					"activities": [
+						{
+							"name": "cd_odata_sap",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [
+								{
+									"name": "ODataURL",
+									"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService)"
+								},
+								{
+									"name": "Entity",
+									"value": "@pipeline().parameters.Entity"
+								},
+								{
+									"name": "Query",
+									"value": "@concat('$top=',pipeline().parameters.Batch, '&$skip=',string(mul(int(item()), int(pipeline().parameters.Batch))), if(empty(pipeline().parameters.Filter), '', concat('&$filter=',pipeline().parameters.Filter)), if(empty(pipeline().parameters.Select), '', concat('&$select=',pipeline().parameters.Select)))"
+								}
+							],
+							"typeProperties": {
+								"source": {
+									"type": "ODataSource",
+									"query": {
+										"value": "@concat('$top=',pipeline().parameters.Batch, '&$skip=',string(mul(int(item()), int(pipeline().parameters.Batch))), if(empty(pipeline().parameters.Filter), concat('&$filter=', if(empty(pipeline().parameters.Watermark), '', concat(pipeline().parameters.WatermarkField, ' gt datetimeoffset''', formatDateTime(pipeline().parameters.Watermark, 'yyyy-MM-ddThh:ss:sZ'),'''', ' and ')), pipeline().parameters.WatermarkField, ' le datetimeoffset''', formatDateTime(variables('v_watermark'), 'yyyy-MM-ddThh:ss:sZ'),''''), concat('&$filter=', pipeline().parameters.Filter, if(empty(pipeline().parameters.Watermark), '', concat(' and ', pipeline().parameters.WatermarkField, ' gt datetimeoffset''', formatDateTime(pipeline().parameters.Watermark, 'yyyy-MM-ddThh:ss:sZ'),'''')), ' and ', pipeline().parameters.WatermarkField, ' le datetimeoffset''', formatDateTime(variables('v_watermark'), 'yyyy-MM-ddThh:ss:sZ'),'''')), if(empty(pipeline().parameters.Select), '', concat('&$select=',pipeline().parameters.Select)))",
+										"type": "Expression"
+									},
+									"httpRequestTimeout": "00:05:00"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_odata_sap",
+									"type": "DatasetReference",
+									"parameters": {
+										"ODataURL": {
+											"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService)",
+											"type": "Expression"
+										},
+										"Entity": {
+											"value": "@pipeline().parameters.Entity",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ds_datalake_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"Path": {
+											"value": "@concat(pipeline().parameters.ODataService, '/', pipeline().parameters.Entity)",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				"name": "l_high_watermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ODataSource",
+						"query": {
+							"value": "@if(empty(pipeline().parameters.Filter), concat('?$select=', pipeline().parameters.WatermarkField, '&$top=1&$orderby=',pipeline().parameters.WatermarkField, ' desc'), concat('?$filter=', pipeline().parameters.Filter, '&$select=', pipeline().parameters.WatermarkField, '&$top=1&$orderby=', pipeline().parameters.WatermarkField, ' desc'))",
+							"type": "Expression"
+						},
+						"httpRequestTimeout": "00:05:00"
+					},
+					"dataset": {
+						"referenceName": "ds_odata_sap",
+						"type": "DatasetReference",
+						"parameters": {
+							"ODataURL": {
+								"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService, '/')",
+								"type": "Expression"
+							},
+							"Entity": {
+								"value": "@pipeline().parameters.Entity",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "sv_watermark",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "l_high_watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [
+					{
+						"name": "c",
+						"value": "@concat('///', pipeline().parameters.WatermarkField)"
+					}
+				],
+				"typeProperties": {
+					"variableName": "v_watermark",
+					"value": {
+						"value": "@activity('l_high_watermark').output.firstRow[pipeline().parameters.WatermarkField]",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "cd_update_watermark",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "fe_count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [
+					{
+						"name": "NWatermark",
+						"value": "@variables('v_watermark')"
+					}
+				],
+				"typeProperties": {
+					"source": {
+						"type": "AzureTableSource",
+						"additionalColumns": [
+							{
+								"name": "HighWatermark",
+								"value": {
+									"value": "@variables('v_watermark')",
+									"type": "Expression"
+								}
+							}
+						],
+						"azureTableSourceQuery": {
+							"value": "@concat('PartitionKey eq ''', pipeline().parameters.ODataService, ''' and RowKey eq ''', pipeline().parameters.Entity, '''')",
+							"type": "Expression"
+						},
+						"azureTableSourceIgnoreTableNotFound": false
+					},
+					"sink": {
+						"type": "AzureTableSink",
+						"azureTableInsertType": "merge",
+						"azureTablePartitionKeyName": {
+							"value": "PartitionKey",
+							"type": "Expression"
+						},
+						"azureTableRowKeyName": {
+							"value": "RowKey",
+							"type": "Expression"
+						},
+						"writeBatchSize": 10000
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "HighWatermark",
+									"type": "String"
+								},
+								"sink": {
+									"name": "Watermark",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "PartitionKey"
+								},
+								"sink": {
+									"name": "PartitionKey",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"name": "RowKey"
+								},
+								"sink": {
+									"name": "RowKey",
+									"type": "String"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_metadata_table",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_metadata_table",
+						"type": "DatasetReference"
+					}
+				]
+			}
+		],
+		"parameters": {
+			"URL": {
+				"type": "string"
+			},
+			"ODataService": {
+				"type": "string"
+			},
+			"Entity": {
+				"type": "string"
+			},
+			"Batch": {
+				"type": "string"
+			},
+			"Select": {
+				"type": "string"
+			},
+			"Filter": {
+				"type": "string"
+			},
+			"Watermark": {
+				"type": "string"
+			},
+			"WatermarkField": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"v_watermark": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-07-03T12:48:15Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

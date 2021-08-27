@@ -1,0 +1,163 @@
+{
+	"name": "p_copy_odata_metadata",
+	"properties": {
+		"activities": [
+			{
+				"name": "l_metadata",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureTableSource",
+						"azureTableSourceIgnoreTableNotFound": false
+					},
+					"dataset": {
+						"referenceName": "ds_metadata_table",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "fe_metadata",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "l_metadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('l_metadata').output.value ",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "sw_delta",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().ExtractionType",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "Delta",
+										"activities": [
+											{
+												"name": "ep_copy_delta",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "p_copy_odata_delta",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"URL": {
+															"value": "@item().Host",
+															"type": "Expression"
+														},
+														"ODataService": {
+															"value": "@item().PartitionKey",
+															"type": "Expression"
+														},
+														"Entity": {
+															"value": "@item().RowKey",
+															"type": "Expression"
+														},
+														"Batch": {
+															"value": "@item().Batch",
+															"type": "Expression"
+														},
+														"Select": {
+															"value": "@item().Select",
+															"type": "Expression"
+														},
+														"Filter": {
+															"value": "@item().Filter",
+															"type": "Expression"
+														},
+														"Watermark": {
+															"value": "@item().Watermark",
+															"type": "Expression"
+														},
+														"WatermarkField": {
+															"value": "@item().WatermarkField",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								],
+								"defaultActivities": [
+									{
+										"name": "ep_copy",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "p_copy_odata",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"URL": {
+													"value": "@item().Host",
+													"type": "Expression"
+												},
+												"ODataService": {
+													"value": "@item().PartitionKey",
+													"type": "Expression"
+												},
+												"Entity": {
+													"value": "@item().RowKey",
+													"type": "Expression"
+												},
+												"Batch": {
+													"value": "@item().Batch",
+													"type": "Expression"
+												},
+												"Select": {
+													"value": "@item().Select",
+													"type": "Expression"
+												},
+												"Filter": {
+													"value": "@item().Filter",
+													"type": "Expression"
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2021-07-03T12:48:19Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

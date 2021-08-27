@@ -1,0 +1,151 @@
+{
+	"name": "p_copy_odata_deltatoken",
+	"properties": {
+		"activities": [
+			{
+				"name": "l_delta",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ODataSource",
+						"httpRequestTimeout": "00:05:00"
+					},
+					"dataset": {
+						"referenceName": "ds_odata_sap",
+						"type": "DatasetReference",
+						"parameters": {
+							"ODataURL": {
+								"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService, '/')",
+								"type": "Expression"
+							},
+							"Entity": {
+								"value": "@concat('DeltaLinksOf', pipeline().parameters.Entity)",
+								"type": "Expression"
+							},
+							"Header": {
+								"value": "@coalesce(null)",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "v_deltatoken",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "l_delta",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "deltatoken",
+					"value": {
+						"value": "@if(empty(activity('l_delta').output.value), '', last(activity('l_delta').output.value).DeltaToken)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "cd_odata_sap",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "v_deltatoken",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ODataSource",
+						"query": {
+							"value": "@if(empty(variables('deltatoken')), '', concat('!deltatoken=''', variables('deltatoken'), ''''))",
+							"type": "Expression"
+						},
+						"httpRequestTimeout": "00:05:00"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_odata_sap",
+						"type": "DatasetReference",
+						"parameters": {
+							"ODataURL": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService, '/')",
+							"Entity": {
+								"value": "@pipeline().parameters.Entity",
+								"type": "Expression"
+							},
+							"Header": {
+								"value": "@concat('odata.track-changes, odata.maxpagesize=', pipeline().parameters.Batch)",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_datalake_parquet",
+						"type": "DatasetReference",
+						"parameters": {
+							"Path": "@concat(pipeline().parameters.ODataService, '/', pipeline().parameters.Entity)"
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"URL": {
+				"type": "string"
+			},
+			"ODataService": {
+				"type": "string"
+			},
+			"Entity": {
+				"type": "string"
+			},
+			"Batch": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"deltatoken": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

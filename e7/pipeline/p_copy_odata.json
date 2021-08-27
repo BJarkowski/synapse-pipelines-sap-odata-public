@@ -1,0 +1,171 @@
+{
+	"name": "p_copy_odata",
+	"properties": {
+		"activities": [
+			{
+				"name": "l_count",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "HttpReadSettings",
+							"requestMethod": "GET"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "ds_http_sap",
+						"type": "DatasetReference",
+						"parameters": {
+							"ODataURL": {
+								"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService, '/')",
+								"type": "Expression"
+							},
+							"Query": {
+								"value": "@if(empty(pipeline().parameters.Filter), '', concat('?$filter=', pipeline().parameters.Filter))",
+								"type": "Expression"
+							},
+							"Entity": {
+								"value": "@pipeline().parameters.Entity",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "fe_count",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "l_count",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@range(0, add(div(int(activity('l_count').output.firstRow.Prop_0), int(pipeline().parameters.Batch)),1))",
+						"type": "Expression"
+					},
+					"batchCount": 5,
+					"activities": [
+						{
+							"name": "cd_odata_sap",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [
+								{
+									"name": "ODataURL",
+									"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService)"
+								},
+								{
+									"name": "Entity",
+									"value": "@pipeline().parameters.Entity"
+								},
+								{
+									"name": "Query",
+									"value": "@concat('$top=',pipeline().parameters.Batch, '&$skip=',string(mul(int(item()), int(pipeline().parameters.Batch))), if(empty(pipeline().parameters.Filter), '', concat('&$filter=',pipeline().parameters.Filter)), if(empty(pipeline().parameters.Select), '', concat('&$select=',pipeline().parameters.Select)))"
+								}
+							],
+							"typeProperties": {
+								"source": {
+									"type": "ODataSource",
+									"query": {
+										"value": "@concat('$top=',pipeline().parameters.Batch, '&$skip=',string(mul(int(item()), int(pipeline().parameters.Batch))), if(empty(pipeline().parameters.Filter), '', concat('&$filter=',pipeline().parameters.Filter)), if(empty(pipeline().parameters.Select), '', concat('&$select=',pipeline().parameters.Select)))",
+										"type": "Expression"
+									},
+									"httpRequestTimeout": "00:05:00"
+								},
+								"sink": {
+									"type": "ParquetSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "ParquetWriteSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "ds_odata_sap",
+									"type": "DatasetReference",
+									"parameters": {
+										"ODataURL": {
+											"value": "@concat(pipeline().parameters.URL, pipeline().parameters.ODataService)",
+											"type": "Expression"
+										},
+										"Entity": {
+											"value": "@pipeline().parameters.Entity",
+											"type": "Expression"
+										},
+										"Header": "@coalesce(null)"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "ds_datalake_parquet",
+									"type": "DatasetReference",
+									"parameters": {
+										"Path": {
+											"value": "@concat(pipeline().parameters.ODataService, '/', pipeline().parameters.Entity)",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"URL": {
+				"type": "string"
+			},
+			"ODataService": {
+				"type": "string"
+			},
+			"Entity": {
+				"type": "string"
+			},
+			"Batch": {
+				"type": "string"
+			},
+			"Select": {
+				"type": "string"
+			},
+			"Filter": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-08-16T16:48:49Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
